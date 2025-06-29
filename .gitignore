@@ -73,3 +73,28 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Firebase
+google-services.json
+GoogleService-Info.plist
+
+# Environment Variables
+.env
+.env.*
+
+# Firebase Functions
+firebase-debug.log
+firebase-debug.*.log
+.firebase/
+
+# VSCode
+.vscode/
+
+# Android Release Keys
+*.jks
+release.properties
+release-signing.properties
+
+# iOS Signing
+*.mobileprovision
+*.cer
