@@ -5,27 +5,30 @@ import {RootStackParamList} from '@/navigation/AuthStack';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RoleSelect'>;
 
-const RoleSelectScreen: React.FC<Props> = () => {
+const RoleSelectScreen: React.FC<Props> = ({navigation}) => {
   const roles = [
     {
       id: 1,
       title: 'Öğretmen',
-      description: '',
+      description: 'Öğrencilerinizi takip edin',
       color: '#2E5C9A',
+      route: 'TeacherLogin',
     },
     {
       id: 2,
       title: 'Öğrenci',
-      description: '',
+      description: 'Derslerinizi ve ödevlerinizi takip edin',
       color: '#3D7CC9',
+      route: 'StudentLogin',
     },
     {
       id: 3,
       title: 'Veli',
-      description: '',
+      description: 'Çocuğunuzun eğitimini takip edin',
       color: '#5B9BD5',
+      route: 'ParentLogin',
     },
-  ];
+  ] as const;
 
   return (
     <View style={styles.container}>
@@ -46,7 +49,7 @@ const RoleSelectScreen: React.FC<Props> = () => {
           <TouchableOpacity
             key={role.id}
             style={[styles.roleButton, {backgroundColor: role.color}]}
-            onPress={() => console.log(`Selected role: ${role.title}`)}>
+            onPress={() => navigation.navigate(role.route)}>
             <Text style={styles.roleButtonTitle}>{role.title}</Text>
             <Text style={styles.roleButtonDescription}>{role.description}</Text>
           </TouchableOpacity>
