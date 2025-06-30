@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '@/navigation/AuthStack';
 import { getAuth, signInWithEmailAndPassword } from '@react-native-firebase/auth';
@@ -16,7 +17,23 @@ type Props = NativeStackScreenProps<RootStackParamList, 'TeacherLogin'>;
 const TeacherLoginScreen: React.FC<Props> = ({navigation}) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+
+  useEffect(() => {
+    // Kayıtlı e-posta adresini yükle
+    loadSavedEmail();
+  }, []);
+
+  const loadSavedEmail = async () => {
+    try {
+      const savedEmail = await AsyncStorage.getItem('savedEmail');
+      if (savedEmail) {
+        setEmail(savedEmail);
+      }
+    } catch (error) {
+      console.error('E-posta yüklenirken hata:', error);
+    }
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -27,6 +44,14 @@ const TeacherLoginScreen: React.FC<Props> = ({navigation}) => {
     try {
       const auth = getAuth();
       await signInWithEmailAndPassword(auth, email, password);
+
+      // Beni hatırla seçeneği işaretliyse e-postayı kaydet
+      if (rememberMe) {
+        await AsyncStorage.setItem('savedEmail', email);
+      } else {
+        await AsyncStorage.removeItem('savedEmail');
+      }
+
       navigation.replace('Home');
     } catch (error: any) {
       if (error.code === 'auth/invalid-email') {

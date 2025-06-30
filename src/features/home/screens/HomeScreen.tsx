@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { getAuth } from '@react-native-firebase/auth';
 import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/navigation/AuthStack';
 
@@ -21,6 +21,32 @@ const HomeScreen = () => {
   const [loading, setLoading] = useState(true);
   const [menuVisible, setMenuVisible] = useState(false);
 
+  const loadUserInfo = async () => {
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+
+      if (user) {
+        const firestore = getFirestore();
+        const userDoc = await getDoc(doc(firestore, 'teachers', user.uid));
+        
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          if (data) {
+            setUserInfo({
+              name: data.name || '',
+              surname: data.surname || '',
+            });
+          }
+        }
+      }
+      setLoading(false);
+    } catch (error) {
+      console.error('Kullanıcı bilgileri yüklenirken hata:', error);
+      setLoading(false);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       const auth = getAuth();
@@ -31,35 +57,17 @@ const HomeScreen = () => {
     }
   };
 
+  // İlk yükleme için
   useEffect(() => {
-    const loadUserInfo = async () => {
-      try {
-        const auth = getAuth();
-        const user = auth.currentUser;
-
-        if (user) {
-          const firestore = getFirestore();
-          const userDoc = await getDoc(doc(firestore, 'teachers', user.uid));
-          
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            if (data) {
-              setUserInfo({
-                name: data.name || '',
-                surname: data.surname || '',
-              });
-            }
-          }
-        }
-        setLoading(false);
-      } catch (error) {
-        console.error('Kullanıcı bilgileri yüklenirken hata:', error);
-        setLoading(false);
-      }
-    };
-
     loadUserInfo();
   }, []);
+
+  // Profil sayfasından dönüşte yenileme için
+  useFocusEffect(
+    React.useCallback(() => {
+      loadUserInfo();
+    }, [])
+  );
 
   if (loading) {
     return (

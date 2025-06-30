@@ -6,29 +6,21 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  Image,
-  Switch,
 } from 'react-native';
-import { getAuth, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from '@react-native-firebase/auth';
-import { getFirestore, doc, getDoc, updateDoc, deleteDoc } from '@react-native-firebase/firestore';
+import { getAuth } from '@react-native-firebase/auth';
+import { getFirestore, doc, getDoc, deleteDoc } from '@react-native-firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/navigation/AuthStack';
-import { launchImageLibrary } from 'react-native-image-picker';
-import storage from '@react-native-firebase/storage';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 interface TeacherData {
   name: string;
   surname: string;
+  email: string;
   phone?: string;
   branch?: string;
-  photoURL?: string;
-  notificationPreferences?: {
-    email: boolean;
-    push: boolean;
-  };
 }
 
 const ProfileScreen = () => {
@@ -39,14 +31,8 @@ const ProfileScreen = () => {
     email: string;
     phone?: string;
     branch?: string;
-    photoURL?: string;
-    notificationPreferences?: {
-      email: boolean;
-      push: boolean;
-    };
   } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   useEffect(() => {
     loadUserInfo();
@@ -58,60 +44,34 @@ const ProfileScreen = () => {
       const user = auth.currentUser;
 
       if (user) {
+        console.log('Auth User ID:', user.uid);
+        console.log('Auth User Email:', user.email);
+        
         const firestore = getFirestore();
         const userDoc = await getDoc(doc(firestore, 'teachers', user.uid));
         
         if (userDoc.exists()) {
           const data = userDoc.data() as TeacherData;
+          console.log('Firestore Data:', JSON.stringify(data, null, 2));
+          
           setUserInfo({
             name: data.name,
             surname: data.surname,
-            email: user.email || '',
+            email: user.email || 'E-posta yok',
             phone: data.phone,
             branch: data.branch,
-            photoURL: data.photoURL,
-            notificationPreferences: data.notificationPreferences || { email: true, push: true },
           });
+        } else {
+          console.log('Firestore document does not exist');
         }
+      } else {
+        console.log('No authenticated user found');
       }
       setLoading(false);
     } catch (error) {
       console.error('Kullanıcı bilgileri yüklenirken hata:', error);
+      console.error('Error details:', error);
       setLoading(false);
-    }
-  };
-
-  const handlePhotoUpload = async () => {
-    try {
-      const result = await launchImageLibrary({
-        mediaType: 'photo',
-        quality: 0.8,
-      });
-
-      if (result.assets && result.assets[0].uri) {
-        setUploadingPhoto(true);
-        const auth = getAuth();
-        const user = auth.currentUser;
-
-        if (user) {
-          const reference = storage().ref(`profile_photos/${user.uid}`);
-          await reference.putFile(result.assets[0].uri);
-          const url = await reference.getDownloadURL();
-
-          const firestore = getFirestore();
-          await updateDoc(doc(firestore, 'teachers', user.uid), {
-            photoURL: url,
-          });
-
-          setUserInfo(prev => prev ? { ...prev, photoURL: url } : null);
-          Alert.alert('Başarılı', 'Profil fotoğrafı güncellendi.');
-        }
-      }
-    } catch (error) {
-      console.error('Fotoğraf yüklenirken hata:', error);
-      Alert.alert('Hata', 'Fotoğraf yüklenirken bir hata oluştu.');
-    } finally {
-      setUploadingPhoto(false);
     }
   };
 
@@ -120,7 +80,6 @@ const ProfileScreen = () => {
     const user = auth.currentUser;
 
     if (user) {
-      // Şifre değiştirme işlemi için yeni bir sayfa açılacak
       navigation.navigate('ChangePassword');
     }
   };
@@ -153,52 +112,6 @@ const ProfileScreen = () => {
         },
       ],
     );
-  };
-
-  const handleNotificationToggle = async (type: 'email' | 'push') => {
-    try {
-      const auth = getAuth();
-      const user = auth.currentUser;
-
-      if (user && userInfo?.notificationPreferences) {
-        const newPreferences = {
-          email: type === 'email' 
-            ? !userInfo.notificationPreferences.email 
-            : userInfo.notificationPreferences.email,
-          push: type === 'push' 
-            ? !userInfo.notificationPreferences.push 
-            : userInfo.notificationPreferences.push,
-        };
-
-        const firestore = getFirestore();
-        await updateDoc(doc(firestore, 'teachers', user.uid), {
-          notificationPreferences: newPreferences,
-        });
-
-        setUserInfo(prev => prev ? {
-          ...prev,
-          notificationPreferences: newPreferences,
-        } : null);
-      }
-    } catch (error) {
-      console.error('Bildirim tercihleri güncellenirken hata:', error);
-      Alert.alert('Hata', 'Bildirim tercihleri güncellenirken bir hata oluştu.');
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      const auth = getAuth();
-      await auth.signOut();
-      navigation.replace('RoleSelect');
-    } catch (error) {
-      console.error('Çıkış yapılırken hata:', error);
-      Alert.alert('Hata', 'Çıkış yapılırken bir hata oluştu.');
-    }
-  };
-
-  const handleEditProfile = () => {
-    navigation.navigate('EditProfile');
   };
 
   if (loading) {
@@ -236,7 +149,9 @@ const ProfileScreen = () => {
         <View style={styles.infoContainer}>
           <View style={styles.infoItem}>
             <Text style={styles.infoLabel}>E-posta</Text>
-            <Text style={styles.infoValue}>{userInfo?.email}</Text>
+            <Text style={styles.infoValue} numberOfLines={2} ellipsizeMode="tail">
+              {userInfo?.email || 'E-posta yok'}
+            </Text>
           </View>
 
           {userInfo?.phone && (
@@ -254,12 +169,16 @@ const ProfileScreen = () => {
           )}
         </View>
 
-        <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
+        <TouchableOpacity style={styles.editButton} onPress={() => navigation.navigate('EditProfile')}>
           <Text style={styles.editButtonText}>Profili Düzenle</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>Çıkış Yap</Text>
+        <TouchableOpacity style={styles.passwordButton} onPress={handlePasswordChange}>
+          <Text style={styles.passwordButtonText}>Şifre Değiştir</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
+          <Text style={styles.deleteButtonText}>Hesabı Sil</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -310,7 +229,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: '#fff',
+    backgroundColor: '#2E5C9A',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 15,
@@ -326,7 +245,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 36,
     fontWeight: 'bold',
-    color: '#2E5C9A',
+    color: '#FFFFFF',
   },
   userName: {
     fontSize: 24,
@@ -341,7 +260,7 @@ const styles = StyleSheet.create({
   infoContainer: {
     backgroundColor: '#fff',
     borderRadius: 15,
-    padding: 20,
+    padding: 15,
     marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: {
@@ -353,16 +272,17 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   infoItem: {
-    marginBottom: 15,
+    marginBottom: 10,
   },
   infoLabel: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 5,
+    marginBottom: 2,
   },
   infoValue: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#333',
+    flexWrap: 'wrap',
   },
   editButton: {
     backgroundColor: '#2E5C9A',
@@ -376,13 +296,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  logoutButton: {
+  passwordButton: {
+    backgroundColor: '#4A90E2',
+    borderRadius: 8,
+    padding: 15,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  passwordButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  deleteButton: {
     backgroundColor: '#FF4444',
     borderRadius: 8,
     padding: 15,
     alignItems: 'center',
   },
-  logoutButtonText: {
+  deleteButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
