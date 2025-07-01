@@ -1,13 +1,16 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
+import { useSelector } from 'react-redux';
+import { RootState } from '../store/store';
 import AuthStack from './AuthStack';
+import { SimpleDrawer } from './SimpleDrawer';
 
-const Router = () => {
+export const Router = () => {
+  const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
+
   return (
     <NavigationContainer>
-      <AuthStack />
+      {isAuthenticated ? <SimpleDrawer /> : <AuthStack />}
     </NavigationContainer>
   );
-};
-
-export default Router; 
+}; 
