@@ -11,10 +11,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '@/navigation/AuthStack';
 import { getAuth, signInWithEmailAndPassword } from '@react-native-firebase/auth';
+import { useDispatch } from 'react-redux';
+import { setAuthenticated } from '../../../store/authSlice';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'TeacherLogin'>;
 
 const TeacherLoginScreen: React.FC<Props> = ({navigation}) => {
+  const dispatch = useDispatch();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
@@ -43,7 +46,22 @@ const TeacherLoginScreen: React.FC<Props> = ({navigation}) => {
 
     try {
       const auth = getAuth();
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      
+      console.log('👤 Giriş başarılı, kullanıcı:', userCredential.user.email);
+      
+      // Kullanıcı bilgilerini ve rolü Redux store'a kaydet
+      dispatch(setAuthenticated({
+        isAuthenticated: true,
+        user: {
+          displayName: userCredential.user.displayName,
+          email: userCredential.user.email,
+          photoURL: userCredential.user.photoURL,
+          role: 'teacher' // Öğretmen rolünü ayarla
+        }
+      }));
+
+      console.log('✅ Redux store güncellendi');
 
       // Beni hatırla seçeneği işaretliyse e-postayı kaydet
       if (rememberMe) {
@@ -54,6 +72,7 @@ const TeacherLoginScreen: React.FC<Props> = ({navigation}) => {
 
       navigation.replace('Home');
     } catch (error: any) {
+      console.error('❌ Giriş hatası:', error);
       if (error.code === 'auth/invalid-email') {
         Alert.alert('Hata', 'Geçersiz e-posta adresi.');
       } else if (error.code === 'auth/wrong-password') {

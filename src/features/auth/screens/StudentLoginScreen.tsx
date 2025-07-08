@@ -9,21 +9,44 @@ import {
 } from 'react-native';
 import {NativeStackScreenProps} from '@react-navigation/native-stack';
 import {RootStackParamList} from '@/navigation/AuthStack';
+import { useDispatch } from 'react-redux';
+import { setAuthenticated } from '../../../store/authSlice';
+import { loginStudent } from '../services/studentService';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StudentLogin'>;
+
 
 const StudentLoginScreen: React.FC<Props> = ({navigation}) => {
   const [studentNumber, setStudentNumber] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const dispatch = useDispatch();
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!studentNumber || !password) {
       Alert.alert('Hata', 'Lütfen tüm alanları doldurun.');
       return;
     }
-    // Giriş işlemleri burada yapılacak
-    console.log('Login attempt:', {studentNumber, password, rememberMe});
+    try {
+      const student = await loginStudent(studentNumber, password);
+      if (!student) {
+        Alert.alert('Hata', 'Okul numarası veya şifre hatalı!');
+        return;
+      }
+      // Redux'a kullanıcıyı kaydet
+      dispatch(setAuthenticated({
+        isAuthenticated: true,
+        user: {
+          displayName: student.fullName || '',
+          photoURL: null,
+          email: student.schoolNumber || '',
+          role: 'student',
+        },
+      }));
+      navigation.replace('StudentHome');
+    } catch (e) {
+      Alert.alert('Hata', 'Giriş sırasında bir hata oluştu.');
+    }
   };
 
   return (
@@ -80,6 +103,12 @@ const StudentLoginScreen: React.FC<Props> = ({navigation}) => {
           style={styles.forgotPassword}
           onPress={() => console.log('Forgot password')}>
           <Text style={styles.forgotPasswordText}>Şifremi Unuttum</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.registerLink}
+          onPress={() => navigation.navigate('StudentRegister')}>
+          <Text style={styles.registerLinkText}>Hesabın yok mu? Kayıt Ol</Text>
         </TouchableOpacity>
       </View>
 
@@ -197,6 +226,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   forgotPasswordText: {
+    color: '#3D7CC9',
+    fontSize: 16,
+  },
+  registerLink: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  registerLinkText: {
     color: '#3D7CC9',
     fontSize: 16,
   },

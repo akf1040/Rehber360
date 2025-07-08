@@ -9,20 +9,23 @@ import {
   ScrollView,
 } from 'react-native';
 import { getAuth } from '@react-native-firebase/auth';
-import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
+import { getFirestore, doc, getDoc, collection, query, where, getDocs } from '@react-native-firebase/firestore';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/navigation/AuthStack';
-import { getSurveyResponsesForTeacher, getSurveyResultsForTeacher } from '@/features/surveys/services/surveyService';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-const HomeScreen = () => {
+const StudentHomeScreen = () => {
   const navigation = useNavigation<NavigationProp>();
-  const [userInfo, setUserInfo] = useState<{name: string; surname: string} | null>(null);
+  const [userInfo, setUserInfo] = useState<{
+    fullName: string;
+    class: string;
+    schoolNumber: string;
+  } | null>(null);
+  const [surveys, setSurveys] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [menuVisible, setMenuVisible] = useState(false);
-  const [completedSurveys, setCompletedSurveys] = useState<any[]>([]);
 
   const loadUserInfo = async () => {
     try {
@@ -31,26 +34,51 @@ const HomeScreen = () => {
 
       if (user) {
         const firestore = getFirestore();
-        const userDoc = await getDoc(doc(firestore, 'teachers', user.uid));
+        const userDoc = await getDoc(doc(firestore, 'students', user.uid));
         
         if (userDoc.exists()) {
           const data = userDoc.data();
           if (data) {
             setUserInfo({
-              name: data.name || '',
-              surname: data.surname || '',
+              fullName: data.fullName || '',
+              class: data.class || '',
+              schoolNumber: data.schoolNumber || '',
             });
           }
         }
-
-        // Tamamlanmış anketleri yükle
-        const surveys = await getSurveyResultsForTeacher(user.uid);
-        setCompletedSurveys(surveys);
       }
       setLoading(false);
     } catch (error) {
       console.error('Kullanıcı bilgileri yüklenirken hata:', error);
       setLoading(false);
+    }
+  };
+
+  const loadAssignedSurveys = async () => {
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+
+      if (user && userInfo) {
+        const firestore = getFirestore();
+        
+        // Öğrenciye atanmış anketleri getir
+        const surveysQuery = query(
+          collection(firestore, 'assigned_surveys'),
+          where('studentId', '==', user.uid),
+          where('completed', '==', false)
+        );
+        
+        const surveysSnapshot = await getDocs(surveysQuery);
+        const surveysData = surveysSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        
+        setSurveys(surveysData);
+      }
+    } catch (error) {
+      console.error('Anketler yüklenirken hata:', error);
     }
   };
 
@@ -64,10 +92,24 @@ const HomeScreen = () => {
     }
   };
 
+  const handleSurveyPress = (survey: any) => {
+    // Anket türüne göre ilgili ekrana yönlendir
+    if (survey.surveyType === 'exam_anxiety') {
+      navigation.navigate('ExamAnxietySurvey', { assignedSurveyId: survey.id });
+    }
+  };
+
   // İlk yükleme için
   useEffect(() => {
     loadUserInfo();
   }, []);
+
+  // Kullanıcı bilgileri yüklendikten sonra anketleri yükle
+  useEffect(() => {
+    if (userInfo) {
+      loadAssignedSurveys();
+    }
+  }, [userInfo]);
 
   // Profil sayfasından dönüşte yenileme için
   useFocusEffect(
@@ -95,46 +137,35 @@ const HomeScreen = () => {
             <Text style={styles.menuIcon}>☰</Text>
           </TouchableOpacity>
           <View style={styles.headerTextContainer}>
-            <Text style={styles.welcomeText}>Hoş Geldiniz</Text>
-            <Text style={styles.nameText}>{userInfo?.name} {userInfo?.surname}</Text>
+            <Text style={styles.welcomeText}>Hoş Geldin</Text>
+            <Text style={styles.nameText}>{userInfo?.fullName}</Text>
+            <Text style={styles.classText}>{userInfo?.class} - {userInfo?.schoolNumber}</Text>
           </View>
         </View>
 
-        {/* Tamamlanmış Anketler */}
-        <ScrollView style={styles.contentContainer}>
-          <Text style={styles.sectionTitle}>Tamamlanmış Anketler</Text>
-          {completedSurveys.length === 0 ? (
-            <View style={styles.noSurveysContainer}>
-              <Text style={styles.noSurveysText}>Henüz tamamlanmış anket bulunmuyor.</Text>
-            </View>
-          ) : (
-            completedSurveys.map((survey) => (
-              <View key={survey.id} style={styles.surveyCard}>
-                <View style={styles.surveyHeader}>
-                  <Text style={styles.surveyTitle}>Sınav Kaygısı Anketi</Text>
-                  <Text style={styles.surveyDate}>
-                    {new Date(survey.completedAt).toLocaleDateString('tr-TR')}
-                  </Text>
-                </View>
-                <Text style={styles.studentName}>
-                  Öğrenci: {survey.studentInfo?.fullName}
-                </Text>
-                <Text style={styles.studentClass}>
-                  Sınıf: {survey.studentInfo?.class}
-                </Text>
-                <TouchableOpacity
-                  style={styles.viewResultButton}
-                  onPress={() => {
-                    console.log('Sonucu Gör butonu tıklandı, survey.id:', survey.id);
-                    console.log('Survey objesi:', survey);
-                    navigation.navigate('TeacherSurveyResults' as any, { surveyId: survey.id });
-                  }}
-                >
-                  <Text style={styles.viewResultButtonText}>Sonucu Gör</Text>
-                </TouchableOpacity>
+        {/* Anketler Bölümü */}
+        <ScrollView style={styles.content}>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Bekleyen Anketler</Text>
+            {surveys.length === 0 ? (
+              <View style={styles.noSurveyContainer}>
+                <Text style={styles.noSurveyText}>Şu anda bekleyen anketiniz bulunmamaktadır.</Text>
               </View>
-            ))
-          )}
+            ) : (
+              surveys.map((survey) => (
+                <TouchableOpacity
+                  key={survey.id}
+                  style={styles.surveyCard}
+                  onPress={() => handleSurveyPress(survey)}>
+                  <Text style={styles.surveyTitle}>{survey.title}</Text>
+                  <Text style={styles.surveyDescription}>{survey.description}</Text>
+                  <Text style={styles.surveyDate}>
+                    Gönderilme: {new Date(survey.createdAt).toLocaleDateString()}
+                  </Text>
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
         </ScrollView>
       </View>
 
@@ -146,14 +177,14 @@ const HomeScreen = () => {
               <View style={styles.userInfo}>
                 <View style={styles.avatar}>
                   <Text style={styles.avatarText}>
-                    {userInfo?.name?.[0]}{userInfo?.surname?.[0]}
+                    {userInfo?.fullName?.[0]}
                   </Text>
                 </View>
                 <View style={styles.userTextContainer}>
                   <Text style={styles.userName}>
-                    {userInfo?.name} {userInfo?.surname}
+                    {userInfo?.fullName}
                   </Text>
-                  <Text style={styles.userRole}>Öğretmen</Text>
+                  <Text style={styles.userRole}>Öğrenci - {userInfo?.class}</Text>
                 </View>
               </View>
               <TouchableOpacity 
@@ -167,20 +198,10 @@ const HomeScreen = () => {
               <TouchableOpacity style={styles.menuItem}>
                 <Text style={styles.menuItemText}>Ana Sayfa</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.menuItem} 
-                onPress={() => {
-                  setMenuVisible(false);
-                  navigation.navigate('Surveys');
-                }}>
-                <Text style={styles.menuItemText}>Anketler</Text>
+              <TouchableOpacity style={styles.menuItem}>
+                <Text style={styles.menuItemText}>Tamamlanan Anketler</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.menuItem} 
-                onPress={() => {
-                  setMenuVisible(false);
-                  navigation.navigate('Profile');
-                }}>
+              <TouchableOpacity style={styles.menuItem}>
                 <Text style={styles.menuItemText}>Profil</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.menuItem}>
@@ -210,13 +231,13 @@ const styles = StyleSheet.create({
   },
   mainContent: {
     flex: 1,
-    backgroundColor: '#B3E0FF',
+    backgroundColor: '#E8F4FD',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#B3E0FF',
+    backgroundColor: '#E8F4FD',
   },
   header: {
     backgroundColor: '#fff',
@@ -224,6 +245,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     paddingTop: 40,
+    elevation: 3,
   },
   menuButton: {
     padding: 10,
@@ -245,6 +267,57 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 5,
   },
+  classText: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 2,
+  },
+  content: {
+    flex: 1,
+    padding: 20,
+  },
+  section: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2E5C9A',
+    marginBottom: 15,
+  },
+  noSurveyContainer: {
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  noSurveyText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+  surveyCard: {
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    elevation: 2,
+  },
+  surveyTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2E5C9A',
+    marginBottom: 5,
+  },
+  surveyDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 5,
+  },
+  surveyDate: {
+    fontSize: 12,
+    color: '#999',
+  },
   menuContainer: {
     ...StyleSheet.absoluteFillObject,
     flexDirection: 'row',
@@ -261,11 +334,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  menuTitle: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
   },
   closeButton: {
     padding: 5,
@@ -334,73 +402,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
-  contentContainer: {
-    flex: 1,
-    padding: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2E5C9A',
-    marginBottom: 16,
-  },
-  noSurveysContainer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  noSurveysText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-  },
-  surveyCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  surveyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  surveyTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  surveyDate: {
-    fontSize: 12,
-    color: '#999',
-  },
-  studentName: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  studentClass: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 12,
-  },
-  viewResultButton: {
-    backgroundColor: '#2E5C9A',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-  },
-  viewResultButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
 });
 
-export default HomeScreen; 
+export default StudentHomeScreen; 

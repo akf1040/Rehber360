@@ -1,29 +1,23 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../../navigation/AuthStack';
+
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const SurveysScreen = () => {
+  const navigation = useNavigation<NavigationProp>();
+
   const surveys = [
     {
       id: 1,
-      title: 'Öğrenci Davranış Değerlendirmesi',
-      description: 'Sınıf içi davranış ve katılım değerlendirmesi',
-      studentCount: 25,
+      title: 'Sınav Kaygısı Ölçeği',
+      description: 'Sınav kaygısı yaşayan öğrencileri tespit etmek ve çözüm yolları bulmak için kullanılır.',
+      studentCount: 0,
       status: 'active',
-    },
-    {
-      id: 2,
-      title: 'Akademik Performans Anketi',
-      description: 'Ders başarı durumu ve gelişim alanları',
-      studentCount: 25,
-      status: 'completed',
-    },
-    {
-      id: 3,
-      title: 'Sosyal Beceri Değerlendirmesi',
-      description: 'Arkadaşlık ilişkileri ve sosyal uyum',
-      studentCount: 25,
-      status: 'draft',
+      screen: 'ExamAnxietySurvey',
     },
   ];
 
@@ -48,16 +42,27 @@ const SurveysScreen = () => {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Anketlerim</Text>
-        <TouchableOpacity style={styles.addButton}>
-          <Icon name="plus" size={20} color="#fff" />
-          <Text style={styles.addButtonText}>Yeni Anket</Text>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.navigate('Home')}
+        >
+          <Icon name="arrow-left" size={24} color="#333" />
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <Text style={styles.title}>Anketlerim</Text>
+        </View>
+        <TouchableOpacity 
+          style={styles.addStudentButton}
+          onPress={() => navigation.navigate('StudentRegister')}
+        >
+          <Icon name="user-plus" size={18} color="#fff" />
+          <Text style={styles.addStudentButtonText}>Öğrenci Ekle</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.stats}>
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>3</Text>
+          <Text style={styles.statNumber}>1</Text>
           <Text style={styles.statLabel}>Toplam Anket</Text>
         </View>
         <View style={styles.statCard}>
@@ -65,14 +70,14 @@ const SurveysScreen = () => {
           <Text style={styles.statLabel}>Aktif Anket</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>25</Text>
-          <Text style={styles.statLabel}>Öğrenci</Text>
+          <Text style={styles.statNumber}>0</Text>
+          <Text style={styles.statLabel}>Tamamlanan</Text>
         </View>
       </View>
 
       <View style={styles.surveysList}>
         {surveys.map((survey) => (
-          <TouchableOpacity key={survey.id} style={styles.surveyCard}>
+          <View key={survey.id} style={styles.surveyCard}>
             <View style={styles.surveyHeader}>
               <Text style={styles.surveyTitle}>{survey.title}</Text>
               <View style={[styles.statusBadge, { backgroundColor: getStatusColor(survey.status) }]}>
@@ -87,20 +92,28 @@ const SurveysScreen = () => {
                 <Icon name="users" size={16} color="#666" />
                 <Text style={styles.studentCount}>{survey.studentCount} öğrenci</Text>
               </View>
+            </View>
               
-              <View style={styles.actions}>
-                <TouchableOpacity style={styles.actionButton}>
-                  <Icon name="eye" size={16} color="#2196F3" />
+            <View style={styles.surveyActions}>
+              <TouchableOpacity 
+                style={styles.surveyActionButton}
+                onPress={() => navigation.navigate('AssignSurvey')}
+              >
+                <Icon name="send" size={18} color="#fff" />
+                <Text style={styles.surveyActionText}>Anketi Gönder</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton}>
-                  <Icon name="edit" size={16} color="#4CAF50" />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton}>
-                  <Icon name="bar-chart" size={16} color="#FF9800" />
+              
+              <TouchableOpacity 
+                style={[styles.surveyActionButton, styles.surveyActionButtonSecondary]}
+                onPress={() => {
+                  navigation.navigate('TeacherSurveyResults');
+                }}
+              >
+                <Icon name="list" size={18} color="#2E5C9A" />
+                <Text style={styles.surveyActionTextSecondary}>Anketi Cevaplayanlar</Text>
                 </TouchableOpacity>
               </View>
             </View>
-          </TouchableOpacity>
         ))}
       </View>
     </ScrollView>
@@ -114,28 +127,39 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
+    paddingTop: 40,
     backgroundColor: '#fff',
+    elevation: 3,
+  },
+  backButton: {
+    padding: 10,
+    marginRight: 10,
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
   },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#2E5C9A',
   },
-  addButton: {
+  addStudentButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2196F3',
-    paddingHorizontal: 16,
+    backgroundColor: '#2E5C9A',
     paddingVertical: 8,
+    paddingHorizontal: 12,
     borderRadius: 20,
+    elevation: 2,
   },
-  addButtonText: {
+  addStudentButtonText: {
     color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
     marginLeft: 8,
-    fontWeight: '600',
   },
   stats: {
     flexDirection: 'row',
@@ -148,16 +172,18 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
+    elevation: 2,
   },
   statNumber: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#2196F3',
+    color: '#2E5C9A',
   },
   statLabel: {
     fontSize: 12,
     color: '#666',
     marginTop: 4,
+    textAlign: 'center',
   },
   surveysList: {
     padding: 20,
@@ -223,6 +249,40 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     padding: 8,
+  },
+  surveyActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+  },
+  surveyActionButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#2E5C9A',
+    marginHorizontal: 5,
+    elevation: 2,
+  },
+  surveyActionButtonSecondary: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#2E5C9A',
+  },
+  surveyActionText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginTop: 8,
+  },
+  surveyActionTextSecondary: {
+    color: '#2E5C9A',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginTop: 8,
   },
 });
 

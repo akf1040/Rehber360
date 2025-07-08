@@ -1,0 +1,23 @@
+[
+  {
+    "schoolNumber": "1001",
+    "password": "abc123",
+    "fullName": "Ali Veli",
+    "class": "10A",
+    "gender": "Erkek"
+  },
+  {
+    "schoolNumber": "1002",
+    "password": "xyz456",
+    "fullName": "Ayşe Yılmaz",
+    "class": "11B",
+    "gender": "Kız"
+  },
+  {
+    "schoolNumber": "1003",
+    "password": "pass789",
+    "fullName": "Mehmet Demir",
+    "class": "9C",
+    "gender": "Erkek"
+  }
+]
